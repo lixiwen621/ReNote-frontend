@@ -109,7 +109,7 @@ async function onSubmit() {
           </div>
         </div>
 
-        <form class="space-y-5" @submit.prevent="onSubmit" autocomplete="off">
+        <form class="space-y-6" @submit.prevent="onSubmit" autocomplete="off">
           <label class="form-control w-full">
             <div class="label pt-0"><span class="label-text font-medium">用户名</span></div>
             <input
@@ -136,14 +136,16 @@ async function onSubmit() {
             <span>{{ errorMessage }}</span>
           </div>
 
-          <button
-            type="submit"
-            class="btn btn-primary btn-block h-11 text-base font-medium shadow-lg shadow-primary/25"
-            :class="{ loading }"
-            :disabled="loading"
-          >
-            {{ loading ? '' : '登录' }}
-          </button>
+          <div :class="errorMessage ? 'pt-1' : 'pt-3'">
+            <button
+              type="submit"
+              class="btn btn-primary btn-block h-11 text-base font-medium shadow-lg shadow-primary/25"
+              :class="{ loading }"
+              :disabled="loading"
+            >
+              {{ loading ? '' : '登录' }}
+            </button>
+          </div>
         </form>
 
         <div class="text-center">

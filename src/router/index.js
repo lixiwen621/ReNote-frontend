@@ -35,6 +35,12 @@ const router = createRouter({
       component: () => import('@/views/HomeView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/week',
+      name: 'week_schedule',
+      component: () => import('@/views/WeekScheduleView.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

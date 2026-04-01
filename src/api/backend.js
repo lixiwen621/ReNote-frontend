@@ -92,6 +92,18 @@ export function getTodayReviewTasks(date) {
   return request(`/api/review-tasks/today${query}`)
 }
 
+export function getReviewTasksWeek(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : ''
+  return request(`/api/review-tasks/week${query}`)
+}
+
+export function updateReviewTaskScheduleTime(taskId, scheduleId, scheduledAt) {
+  return request(`/api/review-tasks/${taskId}/schedules/${scheduleId}/time`, {
+    method: 'PATCH',
+    body: JSON.stringify({ scheduledAt }),
+  })
+}
+
 export function completeReviewTask(taskId, body) {
   return request(`/api/review-tasks/${taskId}/complete`, {
     method: 'POST',

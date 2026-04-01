@@ -121,6 +121,7 @@ onMounted(() => {
         <span v-if="auth.user" class="hidden max-w-[10rem] truncate text-sm opacity-80 sm:inline">
           {{ auth.user.username || auth.user.displayName || `用户 ${auth.user.id}` }}
         </span>
+        <button type="button" class="btn btn-ghost btn-sm" @click="router.push('/week')">本周日程</button>
         <button type="button" class="btn btn-ghost btn-sm" @click="toggleTheme">
           {{ theme === 'light' ? '🌙 深色' : '☀️ 浅色' }}
         </button>

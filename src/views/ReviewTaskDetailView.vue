@@ -46,6 +46,17 @@ const reminderNotifyPhase = computed(() => {
   return null
 })
 
+const reviewCompletedFromQuery = computed(() => route.query.reviewCompleted === 'true')
+
+function scheduleDateKey() {
+  const s = scheduledAt.value
+  if (s && s.length >= 10) {
+    const part = s.slice(0, 10)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(part)) return part
+  }
+  return todayDateStr()
+}
+
 const NOTIFY_PHASE_LABEL = {
   1: '待发送通知',
   2: '发送中',
@@ -73,6 +84,7 @@ function parseLocalDateTime(value) {
 
 const isReminderTriggered = computed(() => {
   if (completed.value) return false
+  if (reviewCompletedFromQuery.value) return false
   // 5=cancelled 的排期不应再完成
   if (scheduleStatus.value === 5) return false
   // 列表内 canComplete 固定 true；直链进入时以后端 query 或时间为准
@@ -123,7 +135,7 @@ async function onComplete() {
     await completeReviewTask(taskId.value, body)
     completed.value = true
     markScheduleCompletedForDate(
-      todayDateStr(),
+      scheduleDateKey(),
       taskId.value,
       scheduleId.value,
       scheduledAt.value,
@@ -135,14 +147,23 @@ async function onComplete() {
   }
 }
 
+function goBackFromDetail() {
+  if (route.query.from === 'week') {
+    router.push({ name: 'week_schedule' })
+    return
+  }
+  router.push('/')
+}
+
 onMounted(() => {
-  const d = todayDateStr()
-  completed.value = isScheduleMarkedCompleted(
-    d,
-    taskId.value,
-    scheduleId.value,
-    scheduledAt.value,
-  )
+  completed.value =
+    reviewCompletedFromQuery.value ||
+    isScheduleMarkedCompleted(
+      scheduleDateKey(),
+      taskId.value,
+      scheduleId.value,
+      scheduledAt.value,
+    )
   fetchTask()
 })
 </script>
@@ -151,7 +172,7 @@ onMounted(() => {
   <div class="min-h-screen bg-base-200 text-base-content">
     <div class="navbar bg-base-100 shadow-sm">
       <div class="flex-1">
-        <button type="button" class="btn btn-ghost" @click="router.push('/')">← 返回</button>
+        <button type="button" class="btn btn-ghost" @click="goBackFromDetail">← 返回</button>
         <span class="text-sm opacity-70">任务详情</span>
       </div>
     </div>

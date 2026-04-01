@@ -8,6 +8,9 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const router = useRouter()
 
+/** 与后端约定：固定为上海时区，不在表单中允许修改 */
+const DEFAULT_TIMEZONE = 'Asia/Shanghai'
+
 const theme = ref('light')
 const loading = ref(false)
 const message = ref('')
@@ -31,7 +34,6 @@ const newReview = ref({
   sourceType: 1,
   noteUrl: '',
   noteContent: '',
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
   remindTimes: [],
 })
 
@@ -97,7 +99,7 @@ async function submitReviewTask() {
       sourceType: Number(newReview.value.sourceType),
       noteUrl: newReview.value.noteUrl.trim() || null,
       noteContent: newReview.value.noteContent.trim() || null,
-      timezone: newReview.value.timezone,
+      timezone: DEFAULT_TIMEZONE,
       scheduleMode: remindTimes.length > 0 ? 1 : 2,
       remindTimes,
     }
@@ -176,10 +178,18 @@ async function submitReviewTask() {
             <input v-model="newReview.noteUrl" type="url" class="input input-bordered w-full" placeholder="https://app.yinxiang.com/..."/>
           </label>
 
-          <label class="fieldset-label">
+          <div class="fieldset-label">
             <span class="label-text font-medium">时区（timezone）</span>
-            <input v-model="newReview.timezone" type="text" class="input input-bordered w-full" />
-          </label>
+            <span class="label-text-alt text-xs opacity-70">固定为上海，不可修改</span>
+            <input
+              type="text"
+              class="input input-bordered w-full cursor-not-allowed bg-base-200"
+              :value="DEFAULT_TIMEZONE"
+              readonly
+              tabindex="-1"
+              aria-readonly="true"
+            />
+          </div>
 
           <div class="fieldset">
             <span class="label-text font-medium">提醒时间</span>
