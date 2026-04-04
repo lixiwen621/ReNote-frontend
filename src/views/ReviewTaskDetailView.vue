@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { completeReviewTask, getReviewTask } from '@/api/backend'
+import { completeReviewTask, getReviewTask, updateReviewTaskNoteUrl } from '@/api/backend'
 import {
   isScheduleMarkedCompleted,
   markScheduleCompletedForDate,
@@ -17,6 +17,27 @@ const errorMessage = ref('')
 const completed = ref(false)
 
 const task = ref(null)
+
+const NOTE_URL_MAX = 1024
+
+const noteUrlEditing = ref(false)
+const noteUrlDraft = ref('')
+const noteUrlSaving = ref(false)
+const noteUrlError = ref('')
+
+const taskStatus = computed(() => {
+  const t = task.value
+  if (!t) return null
+  const s = t.status
+  if (typeof s === 'number' && !Number.isNaN(s)) return s
+  const n = Number(s)
+  return Number.isNaN(n) ? null : n
+})
+
+const canEditNoteUrl = computed(() => {
+  const s = taskStatus.value
+  return s === 1 || s === 2
+})
 
 const taskId = computed(() => String(route.params.taskId || ''))
 const scheduleId = computed(() => {
@@ -72,6 +93,37 @@ const notifyPhaseLabel = computed(() => {
 
 function resetTips() {
   errorMessage.value = ''
+}
+
+function startEditNoteUrl() {
+  noteUrlError.value = ''
+  noteUrlDraft.value = task.value?.noteUrl ?? ''
+  noteUrlEditing.value = true
+}
+
+function cancelEditNoteUrl() {
+  noteUrlEditing.value = false
+  noteUrlError.value = ''
+}
+
+async function saveNoteUrl() {
+  const trimmed = (noteUrlDraft.value ?? '').trim()
+  if (trimmed.length > NOTE_URL_MAX) {
+    noteUrlError.value = `链接不能超过 ${NOTE_URL_MAX} 个字符`
+    return
+  }
+  const payload = trimmed === '' ? '' : trimmed
+  noteUrlError.value = ''
+  try {
+    noteUrlSaving.value = true
+    const data = await updateReviewTaskNoteUrl(taskId.value, payload)
+    task.value = data
+    noteUrlEditing.value = false
+  } catch (e) {
+    noteUrlError.value = e.message || '保存失败'
+  } finally {
+    noteUrlSaving.value = false
+  }
 }
 
 function parseLocalDateTime(value) {
@@ -213,18 +265,72 @@ onMounted(() => {
         </div>
 
         <div class="mt-6 space-y-4">
-          <div>
-            <div class="text-sm font-medium">任务链接</div>
-            <a
-              v-if="task?.noteUrl"
-              :href="task.noteUrl"
-              class="link link-primary break-all"
-              target="_blank"
-              rel="noopener noreferrer"
+          <div class="rounded-box border border-base-300 bg-base-200/50 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm font-medium text-primary">任务链接</span>
+              <button
+                v-if="task && canEditNoteUrl && !noteUrlEditing"
+                type="button"
+                class="btn btn-outline btn-primary btn-sm gap-1"
+                :disabled="loading"
+                @click="startEditNoteUrl"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    d="M17.414 2.586a2 2 0 010 2.828l-8.79 8.79a1 1 0 01-.39.242l-3.3 1.1a1 1 0 01-1.265-1.265l1.1-3.3a1 1 0 01.242-.39l8.79-8.79a2 2 0 012.828 0z"
+                  />
+                </svg>
+                编辑
+              </button>
+            </div>
+
+            <div v-if="!noteUrlEditing" class="mt-2 min-w-0">
+              <a
+                v-if="task?.noteUrl"
+                :href="task.noteUrl"
+                class="link link-primary break-all text-sm"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ task.noteUrl }}
+              </a>
+              <div v-else class="text-sm opacity-60">未保存链接</div>
+            </div>
+
+            <div
+              v-else
+              class="mt-3 rounded-box border border-primary/20 bg-primary/5 p-3"
             >
-              {{ task.noteUrl }}
-            </a>
-            <div v-else class="text-sm opacity-60">未保存链接</div>
+              <div class="mb-2 text-xs font-medium text-primary/80">更新外部笔记或网页链接（留空则清空）</div>
+              <input
+                v-model="noteUrlDraft"
+                type="text"
+                class="input input-bordered input-sm w-full border-primary/30"
+                :maxlength="NOTE_URL_MAX"
+                placeholder="https://…"
+                autocomplete="off"
+              />
+              <p class="mt-1 text-xs opacity-60">最多 {{ NOTE_URL_MAX }} 字符；仅「进行中 / 已暂停」任务可修改。</p>
+              <div v-if="noteUrlError" class="mt-2 text-sm text-error">{{ noteUrlError }}</div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  :disabled="noteUrlSaving || loading"
+                  @click="saveNoteUrl"
+                >
+                  {{ noteUrlSaving ? '保存中…' : '保存' }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  :disabled="noteUrlSaving"
+                  @click="cancelEditNoteUrl"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
           </div>
 
           <div>

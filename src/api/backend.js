@@ -104,6 +104,13 @@ export function updateReviewTaskScheduleTime(taskId, scheduleId, scheduledAt) {
   })
 }
 
+export function updateReviewTaskNoteUrl(taskId, noteUrl) {
+  return request(`/api/review-tasks/${taskId}/note-url`, {
+    method: 'PATCH',
+    body: JSON.stringify({ noteUrl }),
+  })
+}
+
 export function completeReviewTask(taskId, body) {
   return request(`/api/review-tasks/${taskId}/complete`, {
     method: 'POST',
