@@ -118,6 +118,20 @@ export function completeReviewTask(taskId, body) {
   })
 }
 
+export function updateReviewTaskNoteContent(taskId, noteContent) {
+  return request(`/api/review-tasks/${taskId}/note-content`, {
+    method: 'PATCH',
+    body: JSON.stringify({ noteContent }),
+  })
+}
+
+export function editReviewTask(taskId, body) {
+  return request(`/api/review-tasks/${taskId}/edit`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
 export function bindWechatNotify(body) {
   return request('/api/notify/bind/wechat', {
     method: 'POST',
