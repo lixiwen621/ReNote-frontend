@@ -1,38 +1,36 @@
-# renote-app
+# ReNote Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue 3 + Vite；样式 **Tailwind CSS v4** + **daisyUI 5**；路由 **Vue Router**；状态 **Pinia**。
 
-## Recommended IDE Setup
-
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## 开发
 
 ```sh
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
 ```
 
-### Compile and Minify for Production
+- 默认进入 **`/login`**，登录成功进入 **`/`**（复习任务联调页）。
+- 复制 `.env.development.example` 为 `.env.development`。建议 **`VITE_API_BASE_URL` 留空**，由 Vite 将 `/api` **代理到** `http://localhost:8083`，避免浏览器跨域（CORS）问题。
+
+## 登录与鉴权（前端）
+
+- 登录：`POST /api/auth/login`（见 `.specify/specs/auth-login/contracts/auth-api.md`）。
+- 成功后将 `accessToken` 存入 `localStorage`，后续请求自动带 `Authorization: Bearer <token>`。
+- 业务接口由后端根据 Token 识别用户；创建/完成复习任务时的 `userId` 取自登录用户信息。
+
+## 构建
 
 ```sh
 npm run build
 ```
+
+## 技术栈
+
+- [Vue 3](https://vuejs.org/) + [Vite](https://vite.dev/)
+- [Vue Router](https://router.vuejs.org/) + [Pinia](https://pinia.vuejs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)（`@tailwindcss/vite`）
+- [daisyUI](https://daisyui.com/)
+
+## IDE
+
+推荐 [VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar)（勿与 Vetur 同时启用）。

@@ -74,6 +74,46 @@ export function createReviewTask(body) {
   })
 }
 
+/**
+ * 创建复习任务（含附件）。multipart/form-data：task 为 JSON 段，files 为多文件。
+ * @param {Record<string, unknown>} taskPayload 与 POST /api/review-tasks 的 JSON body 一致
+ * @param {File[]} files
+ */
+export async function createReviewTaskMultipart(taskPayload, files = []) {
+  const token = getAccessToken()
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const formData = new FormData()
+  formData.append(
+    'task',
+    new Blob([JSON.stringify(taskPayload)], { type: 'application/json' }),
+  )
+  for (const f of files) {
+    formData.append('files', f)
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/review-tasks/multipart`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+
+  if (response.status === 401) {
+    clearAccessToken()
+    window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
+    throw new Error('登录已过期，请重新登录')
+  }
+
+  const payload = await parseJsonResponse(response)
+
+  if (payload?.code !== 0) {
+    throw new Error(payload?.message || '请求失败')
+  }
+
+  return payload.data
+}
+
 export function getReviewTask(taskId) {
   return request(`/api/review-tasks/${taskId}`)
 }

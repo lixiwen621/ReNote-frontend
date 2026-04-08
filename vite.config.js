@@ -16,6 +16,11 @@ export default defineConfig({
         target: 'http://localhost:8083',
         changeOrigin: true,
       },
+      // 本地存储附件：GET /uploads/review-task/... 由后端提供，开发时走同源代理
+      '/uploads': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+      },
     },
   },
   resolve: {
