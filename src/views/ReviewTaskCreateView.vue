@@ -40,6 +40,7 @@ const pendingFiles = ref([])
 const fileInputRef = ref(null)
 const fileDropActive = ref(false)
 const fileDragDepth = ref(0)
+const attachmentError = ref('')
 
 const filledRemindTimes = computed(() =>
   newReview.value.remindTimes.filter((t) => String(t).trim() !== ''),
@@ -64,6 +65,7 @@ function logout() {
 function resetTips() {
   message.value = ''
   errorMessage.value = ''
+  attachmentError.value = ''
 }
 
 function addRemindTime() {
@@ -110,14 +112,15 @@ function openFilePicker() {
 function addFilesFromList(list) {
   if (!list?.length) return
   errorMessage.value = ''
+  attachmentError.value = ''
   const next = [...pendingFiles.value]
   for (const file of list) {
     if (next.length >= MAX_ATTACHMENT_COUNT) {
-      errorMessage.value = `最多选择 ${MAX_ATTACHMENT_COUNT} 个文件`
+      attachmentError.value = `最多选择 ${MAX_ATTACHMENT_COUNT} 个文件`
       break
     }
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      errorMessage.value = `「${file.name}」超过 ${formatFileSize(MAX_ATTACHMENT_BYTES)}`
+      attachmentError.value = `「${file.name}」超过 ${formatFileSize(MAX_ATTACHMENT_BYTES)}，请上传小于 10MB 的文件`
       continue
     }
     next.push(file)
@@ -539,6 +542,9 @@ async function submitReviewTask() {
                 <p class="mt-1 max-w-sm text-xs text-base-content/50">
                   最多 {{ MAX_ATTACHMENT_COUNT }} 个，单个 ≤ {{ formatFileSize(MAX_ATTACHMENT_BYTES) }}
                 </p>
+              </div>
+              <div v-if="attachmentError" class="mt-2 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">
+                {{ attachmentError }}
               </div>
 
               <ul v-if="pendingFiles.length" class="space-y-2">

@@ -5,6 +5,8 @@ const API_BASE_URL = import.meta.env.DEV
   ? ''
   : (import.meta.env.VITE_API_BASE_URL ?? '')
 
+let authExpiredHandled = false
+
 async function parseJsonResponse(response) {
   const text = await response.text()
   if (!text) return {}
@@ -13,6 +15,43 @@ async function parseJsonResponse(response) {
   } catch {
     throw new Error('服务器返回非 JSON')
   }
+}
+
+function redirectToLoginWithCleanup() {
+  if (authExpiredHandled) return
+  authExpiredHandled = true
+  clearAccessToken()
+  window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
+}
+
+function resolveApiErrorMessage(payload, status) {
+  const code = Number(payload?.code)
+  const rawMessage = typeof payload?.message === 'string' ? payload.message.trim() : ''
+  const message = rawMessage || '请求失败'
+
+  if (code === 400) return message
+  if (code === 401) return '登录已失效，请重新登录'
+  if (code === 403) return rawMessage || '无权限访问'
+  if (code === 422) return message
+  if (code === 500) return rawMessage || '系统异常，请稍后重试'
+
+  // 兜底：网关/反向代理非 2xx 且没有明确业务码
+  if (status >= 500) return rawMessage || '系统异常，请稍后重试'
+  if (status >= 400) return rawMessage || `请求失败（HTTP ${status}）`
+
+  return message
+}
+
+function assertApiSuccess(payload, response) {
+  const code = Number(payload?.code)
+  if (code === 200) return
+
+  if (response.status === 401 || code === 401) {
+    redirectToLoginWithCleanup()
+    throw new Error('登录已失效，请重新登录')
+  }
+
+  throw new Error(resolveApiErrorMessage(payload, response.status))
 }
 
 async function request(path, options = {}) {
@@ -32,17 +71,8 @@ async function request(path, options = {}) {
     headers,
   })
 
-  if (response.status === 401) {
-    clearAccessToken()
-    window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
-    throw new Error('登录已过期，请重新登录')
-  }
-
   const payload = await parseJsonResponse(response)
-
-  if (payload?.code !== 0) {
-    throw new Error(payload?.message || '请求失败')
-  }
+  assertApiSuccess(payload, response)
 
   return payload.data
 }
@@ -99,17 +129,8 @@ export async function createReviewTaskMultipart(taskPayload, files = []) {
     body: formData,
   })
 
-  if (response.status === 401) {
-    clearAccessToken()
-    window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)
-    throw new Error('登录已过期，请重新登录')
-  }
-
   const payload = await parseJsonResponse(response)
-
-  if (payload?.code !== 0) {
-    throw new Error(payload?.message || '请求失败')
-  }
+  assertApiSuccess(payload, response)
 
   return payload.data
 }
