@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { completeReviewTask, editReviewTask, getReviewTask } from '@/api/backend'
@@ -84,6 +84,126 @@ function isImageAttachment(att) {
   if (t === 1) return true
   const ct = String(att.contentType ?? att.content_type ?? '').toLowerCase()
   return ct.startsWith('image/')
+}
+
+/** 大图预览（点击图片打开，不直接跳转下载） */
+const previewAtt = ref(null)
+
+/** 缩放倍数，通过增大 max-height 实现可滚动查看 */
+const previewZoom = ref(1)
+const PREVIEW_ZOOM_MIN = 0.25
+const PREVIEW_ZOOM_MAX = 4
+const PREVIEW_ZOOM_STEP = 0.25
+/** 缩放 1 时的基准最大高度（vh） */
+const PREVIEW_BASE_VH = 68
+
+const previewImageUrl = computed(() =>
+  previewAtt.value ? attachmentHref(previewAtt.value) : '',
+)
+
+const previewImgStyle = computed(() => {
+  const z = previewZoom.value
+  const vh = Math.min(400, PREVIEW_BASE_VH * z)
+  return { maxHeight: `${vh}vh` }
+})
+
+function zoomPreviewIn() {
+  previewZoom.value = Math.min(
+    PREVIEW_ZOOM_MAX,
+    Math.round((previewZoom.value + PREVIEW_ZOOM_STEP) * 100) / 100,
+  )
+}
+
+function zoomPreviewOut() {
+  previewZoom.value = Math.max(
+    PREVIEW_ZOOM_MIN,
+    Math.round((previewZoom.value - PREVIEW_ZOOM_STEP) * 100) / 100,
+  )
+}
+
+function resetPreviewZoom() {
+  previewZoom.value = 1
+}
+
+function onPreviewWheel(e) {
+  if (!previewAtt.value) return
+  e.preventDefault()
+  if (e.deltaY < 0) zoomPreviewIn()
+  else zoomPreviewOut()
+}
+
+function openImagePreview(att) {
+  previewZoom.value = 1
+  previewAtt.value = att
+}
+
+function closeImagePreview() {
+  previewAtt.value = null
+  previewZoom.value = 1
+}
+
+function onPreviewKeydown(e) {
+  if (e.key === 'Escape') closeImagePreview()
+  if (!previewAtt.value) return
+  if (e.key === '+' || e.key === '=') {
+    e.preventDefault()
+    zoomPreviewIn()
+  }
+  if (e.key === '-' || e.key === '_') {
+    e.preventDefault()
+    zoomPreviewOut()
+  }
+  if (e.key === '0') {
+    e.preventDefault()
+    resetPreviewZoom()
+  }
+}
+
+watch(previewAtt, (v) => {
+  if (v) {
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onPreviewKeydown)
+  } else {
+    document.body.style.overflow = ''
+    window.removeEventListener('keydown', onPreviewKeydown)
+  }
+})
+
+onUnmounted(() => {
+  document.body.style.overflow = ''
+  window.removeEventListener('keydown', onPreviewKeydown)
+})
+
+/**
+ * 优先 fetch + Blob 触发下载（可指定文件名）；跨域无 CORS 时回退为 a[download]。
+ */
+async function downloadAttachment(att) {
+  const url = attachmentHref(att)
+  const name = attachmentName(att)
+  if (!url) return
+  try {
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
+    if (!res.ok) throw new Error('fetch failed')
+    const blob = await res.blob()
+    const objUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objUrl
+    a.download = name
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(objUrl)
+  } catch {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
 }
 
 const taskId = computed(() => String(route.params.taskId || ''))
@@ -471,33 +591,41 @@ onMounted(() => {
                 :key="`img-${att.id ?? attachmentHref(att)}`"
                 class="overflow-hidden rounded-xl border border-base-300/90 bg-base-100 shadow-sm transition-shadow hover:shadow-md"
               >
-                <a
-                  :href="attachmentHref(att)"
-                  class="relative block bg-gradient-to-b from-base-200/90 to-base-200/40"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  :title="`查看原图：${attachmentName(att)}`"
+                <button
+                  type="button"
+                  class="relative block w-full cursor-zoom-in bg-gradient-to-b from-base-200/90 to-base-200/40 text-left"
+                  :title="`点击预览：${attachmentName(att)}`"
+                  @click="openImagePreview(att)"
                 >
                   <div class="flex aspect-[4/3] max-h-72 min-h-[11rem] items-center justify-center p-2 sm:min-h-[13rem]">
                     <img
                       :src="attachmentHref(att)"
                       :alt="attachmentName(att)"
-                      class="max-h-full max-w-full rounded-lg object-contain shadow-sm ring-1 ring-black/5"
+                      class="pointer-events-none max-h-full max-w-full rounded-lg object-contain shadow-sm ring-1 ring-black/5"
                       loading="lazy"
                     />
                   </div>
-                </a>
+                </button>
                 <div class="border-t border-base-200 bg-base-100 px-3 py-2.5">
-                  <a
-                    :href="attachmentHref(att)"
-                    class="link link-primary block truncate text-sm font-medium"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    :title="attachmentName(att)"
-                  >
-                    {{ attachmentName(att) }}
-                  </a>
-                  <p class="mt-0.5 text-xs text-base-content/45">
+                  <div class="flex items-start justify-between gap-2">
+                    <span
+                      class="min-w-0 flex-1 truncate text-sm font-medium text-base-content"
+                      :title="attachmentName(att)"
+                    >
+                      {{ attachmentName(att) }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-xs shrink-0 gap-1 text-primary"
+                      @click.stop="downloadAttachment(att)"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l4-4m-4 4l-4-4" />
+                      </svg>
+                      下载
+                    </button>
+                  </div>
+                  <p class="mt-1 text-xs text-base-content/45">
                     {{ formatFileSize(att.fileSize ?? att.file_size) }}
                     <span v-if="att.contentType || att.content_type"> · {{ att.contentType ?? att.content_type }}</span>
                   </p>
@@ -559,6 +687,99 @@ onMounted(() => {
         </div>
       </div>
     </main>
+
+    <Teleport to="body">
+      <div
+        v-if="previewAtt"
+        class="fixed inset-0 z-[100] flex flex-col bg-black/85 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="图片预览"
+        @click.self="closeImagePreview"
+      >
+        <button
+          type="button"
+          class="btn btn-circle btn-ghost btn-sm absolute right-3 top-3 z-[110] border border-white/25 text-white hover:bg-white/10"
+          aria-label="关闭预览"
+          @click="closeImagePreview"
+        >
+          ✕
+        </button>
+
+        <!-- 缩放工具条 -->
+        <div
+          class="absolute left-3 top-3 z-[110] flex flex-wrap items-center gap-1 rounded-lg border border-white/20 bg-black/40 px-1.5 py-1 backdrop-blur-sm"
+          @click.stop
+        >
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs h-8 min-h-8 px-2 text-white hover:bg-white/15"
+            aria-label="缩小"
+            :disabled="previewZoom <= PREVIEW_ZOOM_MIN"
+            @click="zoomPreviewOut"
+          >
+            −
+          </button>
+          <span class="min-w-[3.25rem] text-center text-xs tabular-nums text-white/90">
+            {{ Math.round(previewZoom * 100) }}%
+          </span>
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs h-8 min-h-8 px-2 text-white hover:bg-white/15"
+            aria-label="放大"
+            :disabled="previewZoom >= PREVIEW_ZOOM_MAX"
+            @click="zoomPreviewIn"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs h-8 min-h-8 px-2 text-white/80 hover:bg-white/15"
+            title="重置为 100%（快捷键 0）"
+            @click="resetPreviewZoom"
+          >
+            复位
+          </button>
+        </div>
+
+        <p class="pointer-events-none absolute left-3 top-14 z-[109] max-w-[14rem] text-[11px] leading-snug text-white/50 sm:top-12">
+          滚轮缩放 · +/- 键 · 0 复位 · Esc 关闭
+        </p>
+
+        <!-- 可滚动区域：放大后可拖动滚动条查看边缘 -->
+        <div
+          class="mt-12 min-h-0 flex-1 overflow-auto overscroll-contain sm:mt-10"
+          @wheel.prevent="onPreviewWheel"
+          @click.self="closeImagePreview"
+        >
+          <div class="flex min-h-full min-w-full items-center justify-center p-4 pb-8">
+            <img
+              :src="previewImageUrl"
+              :alt="attachmentName(previewAtt)"
+              :style="previewImgStyle"
+              class="max-w-full object-contain shadow-2xl transition-[max-height] duration-150 ease-out"
+              @click.stop
+            />
+          </div>
+        </div>
+
+        <div
+          class="mt-auto flex max-w-full flex-shrink-0 flex-wrap items-center justify-center gap-3 border-t border-white/10 pt-3"
+          @click.stop
+        >
+          <span class="max-w-[min(100%,28rem)] truncate text-center text-sm text-white/90">
+            {{ attachmentName(previewAtt) }}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm border-0 bg-white/15 text-white hover:bg-white/25"
+            @click="downloadAttachment(previewAtt)"
+          >
+            下载原图
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
